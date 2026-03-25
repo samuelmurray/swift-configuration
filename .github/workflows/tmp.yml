@@ -1,0 +1,37 @@
+name: Manual
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ "example/ios-app_workflow_test" ]
+  workflow_dispatch:
+
+env:
+  ENABLE_ALL_TRAITS: "1"
+
+jobs:
+  example-xcode-projects:
+    strategy:
+      matrix:
+        destination: 
+          - generic/platform=macOS
+          - generic/platform=iOS Simulator
+          - generic/platform=tvOS Simulator
+          - generic/platform=visionOS Simulator
+    name: Example Xcode projects
+    runs-on: macos-26
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ">=26.4"
+      - name: Build
+        run: ./Scripts/test-xcode-examples.sh
+        env:
+          XCODEBUILD_DESTINATION: ${{ matrix.destination }}
