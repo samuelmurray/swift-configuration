@@ -90,6 +90,33 @@ extension ConfigReader {
         )
     }
 
+    public func ${primitive_type["lowercase_name"]}<Value>(
+        forKey key: ConfigKey,
+        as type: Value.Type = Value.self,
+        isSecret: Bool = false,
+        default defaultValue: Value,
+        fileID: String = #fileID,
+        line: UInt = #line,
+        transform: (${primitive_type["type"]}) -> Value?,
+        untransform: (Value) -> ${primitive_type["type"]}
+    ) -> Value {
+        value(
+            forKey: key,
+            type: .${lower_first(primitive_type["name"])},
+            isSecret: isSecret,
+            default: defaultValue,
+            unwrap: { 
+                guard let ret = transform(try $0.as${primitive_type["name"]}) else { 
+                    throw ConfigError.configValueFailedToCast(name: keyPrefix.appending(key).description, type: "\(type)") 
+                } 
+                return ret
+            },
+            wrap: { ConfigContent.${lower_first(primitive_type["name"])}(untransform($0)) },
+            fileID: fileID,
+            line: line
+        )
+    }
+
     /// Synchronously gets a required config value for the given config key, throwing an error if it's missing.
     ///
     /// Use this method when a configuration value is mandatory for your application to function.
