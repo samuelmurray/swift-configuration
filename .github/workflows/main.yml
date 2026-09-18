@@ -5,168 +5,11 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [test/xcode27]
   schedule:
     - cron: "0 8,20 * * *"
 
 jobs:
-  unit-tests:
-    name: Unit tests
-    uses: apple/swift-nio/.github/workflows/unit_tests.yml@main
-    with:
-      linux_env_vars: '{"ENABLE_ALL_TRAITS":"1"}'
-      linux_5_10_enabled: false
-      linux_6_0_enabled: false
-      linux_6_1_enabled: false
-      linux_6_2_arguments_override: "--explicit-target-dependency-import-check error"
-      linux_6_3_arguments_override: "--explicit-target-dependency-import-check error"
-      linux_nightly_next_enabled: false
-      linux_nightly_next_arguments_override: "--explicit-target-dependency-import-check error"
-      linux_nightly_main_arguments_override: "--explicit-target-dependency-import-check error"
-      # Windows is disabled, blocked on Swift Service Lifecycle Windows support: https://github.com/swift-server/swift-service-lifecycle/issues/213
-      windows_6_0_enabled: false
-      windows_6_1_enabled: false
-      windows_nightly_next_enabled: false
-      windows_nightly_main_enabled: false
-      windows_6_1_arguments_override: "--enable-all-traits --explicit-target-dependency-import-check error"
-      windows_nightly_next_arguments_override: "--enable-all-traits --explicit-target-dependency-import-check error"
-      windows_nightly_main_arguments_override: "--enable-all-traits --explicit-target-dependency-import-check error"
-
-  static-sdk:
-    name: Static SDK
-    # Workaround https://github.com/nektos/act/issues/1875
-    uses: apple/swift-nio/.github/workflows/static_sdk.yml@main
-    with:
-      # Yams doesn't compile for Musl.
-      # env_vars: '{"ENABLE_ALL_TRAITS":"1"}'
-      command_arguments: '--swift-sdk x86_64-swift-linux-musl --target Configuration'
-
-  android-sdk-testing:
-    name: Android SDK with emulator testing
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.15
-    with:
-      enable_linux_checks: false
-      enable_windows_checks: false
-      enable_android_sdk_build: true
-      enable_android_sdk_checks: true
-      android_ndk_versions: '["r27d", "r29"]'
-      linux_env_vars: 'ENABLE_ALL_TRAITS=1'
-
-  macos-tests:
-    name: macOS tests
-    uses: apple/swift-nio/.github/workflows/macos_tests.yml@main
-    with:
-      env_vars: '{"ENABLE_ALL_TRAITS":"1"}'
-      runner_pool: nightly
-      build_scheme: swift-configuration-Package
-      swift_6_1_enabled: false
-      swift_6_2_enabled: true
-      swift_6_3_enabled: true
-
-  release-builds:
-    name: Release builds
-    uses: apple/swift-nio/.github/workflows/release_builds.yml@main
-    with:
-      linux_env_vars: '{"ENABLE_ALL_TRAITS":"1"}'
-      linux_5_10_enabled: false
-      linux_6_0_enabled: false
-      linux_6_1_enabled: false
-      linux_nightly_next_enabled: false
-      windows_6_0_enabled: false
-      windows_6_1_enabled: false
-      windows_nightly_next_enabled: false
-      windows_nightly_main_enabled: false
-
-  construct-traits-matrix:
-    name: Construct traits matrix
-    runs-on: ubuntu-latest
-    outputs:
-      traits-matrix: '${{ steps.generate-matrix.outputs.traits-matrix }}'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - id: generate-matrix
-        run: echo "traits-matrix=$(curl -s https://raw.githubusercontent.com/apple/swift-nio/main/scripts/generate_matrix.sh | bash)" >> "$GITHUB_OUTPUT"
-        env:
-          MATRIX_LINUX_SETUP_COMMAND: apt-get update -y && apt-get install -yq jq && git config --global --add safe.directory /swift-configuration
-          MATRIX_LINUX_COMMAND: ./Scripts/test-traits.sh
-          # Only test on the latest Swift version: when upstream
-          # generate_matrix.sh adds a new version, disable the previous one here.
-          MATRIX_LINUX_5_10_ENABLED: false
-          MATRIX_LINUX_6_0_ENABLED: false
-          MATRIX_LINUX_6_1_ENABLED: false
-          MATRIX_LINUX_6_2_ENABLED: false
-          MATRIX_LINUX_NIGHTLY_NEXT_ENABLED: false
-          MATRIX_LINUX_NIGHTLY_MAIN_ENABLED: false
-
-  traits-test:
-    name: Traits
-    needs: construct-traits-matrix
-    uses: apple/swift-nio/.github/workflows/swift_test_matrix.yml@main
-    with:
-      name: "Traits"
-      matrix_string: '${{ needs.construct-traits-matrix.outputs.traits-matrix }}'
-
-  construct-linkage-test-matrix:
-    name: Construct linkage matrix
-    runs-on: ubuntu-latest
-    outputs:
-      integration-test-matrix: '${{ steps.generate-matrix.outputs.integration-test-matrix }}'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - id: generate-matrix
-        run: echo "integration-test-matrix=$(curl -s https://raw.githubusercontent.com/apple/swift-nio/main/scripts/generate_matrix.sh | bash)" >> "$GITHUB_OUTPUT"
-        env:
-          MATRIX_LINUX_SETUP_COMMAND: apt-get update -y && apt-get install -yq jq && git config --global --add safe.directory /swift-configuration/.git && git config --global --add safe.directory /configuration
-          MATRIX_LINUX_COMMAND: ./Scripts/run-linkage-test.sh
-          MATRIX_LINUX_5_10_ENABLED: false
-          MATRIX_LINUX_6_0_ENABLED: false
-          MATRIX_LINUX_6_1_ENABLED: false
-          MATRIX_LINUX_NIGHTLY_NEXT_ENABLED: false
-          MATRIX_LINUX_NIGHTLY_MAIN_ENABLED: false
-
-  linkage-test:
-    name: Linkage test
-    needs: construct-linkage-test-matrix
-    uses: apple/swift-nio/.github/workflows/swift_test_matrix.yml@main
-    with:
-      name: "Integration test"
-      matrix_string: '${{ needs.construct-linkage-test-matrix.outputs.integration-test-matrix }}'
-
-  construct-example-packages-matrix:
-    name: Construct example packages matrix
-    runs-on: ubuntu-latest
-    outputs:
-      example-packages-matrix: '${{ steps.generate-matrix.outputs.example-packages-matrix }}'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - id: generate-matrix
-        run: echo "example-packages-matrix=$(curl -s https://raw.githubusercontent.com/apple/swift-nio/main/scripts/generate_matrix.sh | bash)" >> "$GITHUB_OUTPUT"
-        env:
-          MATRIX_LINUX_SETUP_COMMAND: git config --global --add safe.directory /swift-configuration
-          MATRIX_LINUX_COMMAND: ./Scripts/test-examples.sh
-          MATRIX_LINUX_5_10_ENABLED: false
-          MATRIX_LINUX_6_0_ENABLED: false
-          MATRIX_LINUX_6_1_ENABLED: false
-          MATRIX_LINUX_NIGHTLY_NEXT_ENABLED: false
-          MATRIX_LINUX_NIGHTLY_MAIN_ENABLED: false
-
-  example-packages:
-    name: Example packages
-    needs: construct-example-packages-matrix
-    uses: apple/swift-nio/.github/workflows/swift_test_matrix.yml@main
-    with:
-      name: "Example packages"
-      matrix_string: '${{ needs.construct-example-packages-matrix.outputs.example-packages-matrix }}'
-
   example-xcode-projects:
     strategy:
       matrix:
@@ -176,7 +19,7 @@ jobs:
           - generic/platform=tvOS Simulator
           - generic/platform=visionOS Simulator
     name: Example Xcode projects
-    runs-on: macos-26
+    runs-on: xcode-27
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -185,17 +28,8 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: ">=26.4"
+          xcode-version: ">=27.0"
       - name: Build
         run: ./Scripts/test-xcode-examples.sh
         env:
           XCODEBUILD_DESTINATION: ${{ matrix.destination }}
-
-  benchmarks:
-    name: Benchmarks
-    uses: apple/swift-nio/.github/workflows/benchmarks.yml@main
-    with:
-      benchmark_package_path: "Benchmarks"
-      linux_5_10_enabled: false
-      linux_6_0_enabled: false
-      linux_6_1_enabled: false
